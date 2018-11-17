@@ -6,6 +6,7 @@ const std = @import("std");
 const debug = std.debug;
 const mem = std.mem;
 const maxInt = std.math.maxInt;
+const ParseNumber = @import("modules/zig-parse-number/parse_number.zig").ParseNumber;
 
 // A single token slice into the parent string.
 //
@@ -1344,7 +1345,7 @@ pub const Parser = struct {
         return if (token.number_is_integer)
             Value{ .Integer = try std.fmt.parseInt(i64, token.slice(input, i), 10) }
         else
-            @panic("TODO: fmt.parseFloat not yet implemented");
+            Value{ .Float = try ParseNumber(f64).parse(token.slice(input, i)) };
     }
 };
 
@@ -1364,7 +1365,8 @@ test "json parser dynamic" {
         \\          "Width":  100
         \\      },
         \\      "Animated" : false,
-        \\      "IDs": [116, 943, 234, 38793]
+        \\      "IDs": [116, 943, 234, 38793],
+        \\      "FloatNumber": 33.0
         \\    }
         \\}
     ;
@@ -1387,4 +1389,7 @@ test "json parser dynamic" {
 
     const animated = image.Object.get("Animated").?.value;
     debug.assert(animated.Bool == false);
+
+    const float_number = image.Object.get("FloatNumber").?.value;
+    debug.assert(float_number.Float == 33.0);
 }
