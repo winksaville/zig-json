@@ -2,7 +2,7 @@
 //
 // https://tools.ietf.org/html/rfc8259
 
-const std = @import("index.zig");
+const std = @import("std");
 const debug = std.debug;
 const mem = std.mem;
 const maxInt = std.math.maxInt;
