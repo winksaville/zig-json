@@ -8,8 +8,8 @@ const mem = std.mem;
 const maxInt = std.math.maxInt;
 const ParseNumber = @import("modules/zig-parse-number/parse_number.zig").ParseNumber;
 
-const DP = true;
-const DT = true;
+const DP = false;
+const DT = false;
 const DS = false;
 
 // A single token slice into the parent string.
