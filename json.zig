@@ -8,6 +8,10 @@ const mem = std.mem;
 const maxInt = std.math.maxInt;
 const ParseNumber = @import("modules/zig-parse-number/parse_number.zig").ParseNumber;
 
+const DP = true;
+const DT = true;
+const DS = false;
+
 // A single token slice into the parent string.
 //
 // Use `token.slice()` on the input at the current position to get the current slice.
@@ -220,6 +224,12 @@ pub const StreamingParser = struct {
 
     // Perform a single transition on the state machine and return any possible token.
     fn transition(p: *StreamingParser, c: u8, token: *?Token) Error!bool {
+        if (DS) debug.warn("StreamParser T s={} c={x}'{c}'", p.state, c, c);
+        defer {
+            if (DS) {
+                debug.warn(" token={} ns={}\n", token.*, p.state);
+            }
+        }
         switch (p.state) {
             State.TopLevelBegin => switch (c) {
                 '{' => {
@@ -284,18 +294,22 @@ pub const StreamingParser = struct {
                     p.count = 0;
                 },
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidTopLevel");
                     return error.InvalidTopLevel;
                 },
             },
 
             State.TopLevelEnd => switch (c) {
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidTopLevelTrailing");
                     return error.InvalidTopLevelTrailing;
                 },
             },
@@ -413,9 +427,11 @@ pub const StreamingParser = struct {
                     p.count = 0;
                 },
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidValueBegin");
                     return error.InvalidValueBegin;
                 },
             },
@@ -479,9 +495,11 @@ pub const StreamingParser = struct {
                     p.count = 0;
                 },
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidValueBegin");
                     return error.InvalidValueBegin;
                 },
             },
@@ -528,9 +546,11 @@ pub const StreamingParser = struct {
                     token.* = Token.initMarker(Token.Id.ObjectEnd);
                 },
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidValueEnd");
                     return error.InvalidValueEnd;
                 },
             },
@@ -541,15 +561,18 @@ pub const StreamingParser = struct {
                     p.after_string_state = State.ValueEnd;
                 },
                 0x09, 0x0A, 0x0D, 0x20 => {
+                    if (DS) debug.warn(" whitespace");
                     // whitespace
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidSeperator");
                     return error.InvalidSeparator;
                 },
             },
 
             State.String => switch (c) {
                 0x00...0x1F => {
+                    if (DS) debug.warn(" x00...0x1F  error.InvalidControlCharacter\n");
                     return error.InvalidControlCharacter;
                 },
                 '"' => {
@@ -577,6 +600,7 @@ pub const StreamingParser = struct {
                     p.state = State.StringUtf8Byte3;
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidUtf8Byte");
                     return error.InvalidUtf8Byte;
                 },
             },
@@ -614,6 +638,7 @@ pub const StreamingParser = struct {
                     p.state = State.StringEscapeHexUnicode4;
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidEscapeCharacter");
                     return error.InvalidEscapeCharacter;
                 },
             },
@@ -622,28 +647,40 @@ pub const StreamingParser = struct {
                 '0'...'9', 'A'...'F', 'a'...'f' => {
                     p.state = State.StringEscapeHexUnicode3;
                 },
-                else => return error.InvalidUnicodeHexSymbol,
+                else => {
+                    if (DS) debug.warn(" error.InvalidUnicodeHexSymbol");
+                    return error.InvalidUnicodeHexSymbol;
+                },
             },
 
             State.StringEscapeHexUnicode3 => switch (c) {
                 '0'...'9', 'A'...'F', 'a'...'f' => {
                     p.state = State.StringEscapeHexUnicode2;
                 },
-                else => return error.InvalidUnicodeHexSymbol,
+                else => {
+                    if (DS) debug.warn(" error.InvalidUnicodeHexSymbol");
+                    return error.InvalidUnicodeHexSymbol;
+                },
             },
 
             State.StringEscapeHexUnicode2 => switch (c) {
                 '0'...'9', 'A'...'F', 'a'...'f' => {
                     p.state = State.StringEscapeHexUnicode1;
                 },
-                else => return error.InvalidUnicodeHexSymbol,
+                else => {
+                    if (DS) debug.warn(" error.InvalidUnicodeHexSymbol");
+                    return error.InvalidUnicodeHexSymbol;
+                },
             },
 
             State.StringEscapeHexUnicode1 => switch (c) {
                 '0'...'9', 'A'...'F', 'a'...'f' => {
                     p.state = State.String;
                 },
-                else => return error.InvalidUnicodeHexSymbol,
+                else => {
+                    if (DS) debug.warn(" error.InvalidUnicodeHexSymbol");
+                    return error.InvalidUnicodeHexSymbol;
+                },
             },
 
             State.Number => {
@@ -656,6 +693,7 @@ pub const StreamingParser = struct {
                         p.state = State.NumberMaybeDigitOrDotOrExponent;
                     },
                     else => {
+                        if (DS) debug.warn(" error.InvalidNumber");
                         return error.InvalidNumber;
                     },
                 }
@@ -675,6 +713,7 @@ pub const StreamingParser = struct {
                     else => {
                         p.state = p.after_value_state;
                         token.* = Token.initNumber(p.count, p.number_is_integer);
+                        if (DS) debug.warn(" return true");
                         return true;
                     },
                 }
@@ -697,6 +736,7 @@ pub const StreamingParser = struct {
                     else => {
                         p.state = p.after_value_state;
                         token.* = Token.initNumber(p.count, p.number_is_integer);
+                        if (DS) debug.warn(" return true");
                         return true;
                     },
                 }
@@ -709,6 +749,7 @@ pub const StreamingParser = struct {
                         p.state = State.NumberFractional;
                     },
                     else => {
+                        if (DS) debug.warn(" error.InvalidNumber");
                         return error.InvalidNumber;
                     },
                 }
@@ -727,6 +768,7 @@ pub const StreamingParser = struct {
                     else => {
                         p.state = p.after_value_state;
                         token.* = Token.initNumber(p.count, p.number_is_integer);
+                        if (DS) debug.warn(" return true");
                         return true;
                     },
                 }
@@ -742,6 +784,7 @@ pub const StreamingParser = struct {
                     else => {
                         p.state = p.after_value_state;
                         token.* = Token.initNumber(p.count, p.number_is_integer);
+                        if (DS) debug.warn(" return true");
                         return true;
                     },
                 }
@@ -767,6 +810,7 @@ pub const StreamingParser = struct {
                     p.state = State.NumberExponentDigits;
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidNumber");
                     return error.InvalidNumber;
                 },
             },
@@ -780,19 +824,30 @@ pub const StreamingParser = struct {
                     else => {
                         p.state = p.after_value_state;
                         token.* = Token.initNumber(p.count, p.number_is_integer);
+                        if (DS) debug.warn(" return true");
                         return true;
                     },
                 }
             },
 
             State.TrueLiteral1 => switch (c) {
-                'r' => p.state = State.TrueLiteral2,
-                else => return error.InvalidLiteral,
+                'r' => {
+                    p.state = State.TrueLiteral2;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.TrueLiteral2 => switch (c) {
-                'u' => p.state = State.TrueLiteral3,
-                else => return error.InvalidLiteral,
+                'u' => {
+                    p.state = State.TrueLiteral3;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.TrueLiteral3 => switch (c) {
@@ -802,23 +857,39 @@ pub const StreamingParser = struct {
                     token.* = Token.init(Token.Id.True, p.count + 1, 1);
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
                     return error.InvalidLiteral;
                 },
             },
 
             State.FalseLiteral1 => switch (c) {
-                'a' => p.state = State.FalseLiteral2,
-                else => return error.InvalidLiteral,
+                'a' => {
+                    p.state = State.FalseLiteral2;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                }
             },
 
             State.FalseLiteral2 => switch (c) {
-                'l' => p.state = State.FalseLiteral3,
-                else => return error.InvalidLiteral,
+                'l' => {
+                    p.state = State.FalseLiteral3;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.FalseLiteral3 => switch (c) {
-                's' => p.state = State.FalseLiteral4,
-                else => return error.InvalidLiteral,
+                's' => {
+                    p.state = State.FalseLiteral4;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.FalseLiteral4 => switch (c) {
@@ -828,18 +899,29 @@ pub const StreamingParser = struct {
                     token.* = Token.init(Token.Id.False, p.count + 1, 1);
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
                     return error.InvalidLiteral;
                 },
             },
 
             State.NullLiteral1 => switch (c) {
-                'u' => p.state = State.NullLiteral2,
-                else => return error.InvalidLiteral,
+                'u' => {
+                    p.state = State.NullLiteral2;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.NullLiteral2 => switch (c) {
-                'l' => p.state = State.NullLiteral3,
-                else => return error.InvalidLiteral,
+                'l' => {
+                    p.state = State.NullLiteral3;
+                },
+                else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
+                    return error.InvalidLiteral;
+                },
             },
 
             State.NullLiteral3 => switch (c) {
@@ -849,11 +931,13 @@ pub const StreamingParser = struct {
                     token.* = Token.init(Token.Id.Null, p.count + 1, 1);
                 },
                 else => {
+                    if (DS) debug.warn(" error.InvalidLiteral");
                     return error.InvalidLiteral;
                 },
             },
         }
 
+        if (DS) debug.warn(" return false");
         return false;
     }
 };
@@ -875,8 +959,10 @@ pub const TokenStream = struct {
     }
 
     pub fn next(self: *TokenStream) !?Token {
+        if (DT) debug.warn("TokenStream.next:+\n");
         if (self.token) |token| {
             self.token = null;
+            if (DT) debug.warn("TokenStream.next:- return second token={}\n\n", token);
             return token;
         }
 
@@ -889,6 +975,7 @@ pub const TokenStream = struct {
 
             if (t1) |token| {
                 self.token = t2;
+                if (DT) debug.warn("TokenStream.next:- return first token={} t2={}\n\n", token, t2);
                 return token;
             }
         }
@@ -898,10 +985,12 @@ pub const TokenStream = struct {
             self.i += 1;
 
             if (t1) |token| {
+                if (DT) debug.warn("TokenStream.next:- return last token={}\n\n", token);
                 return token;
             }
         }
 
+        if (DT) debug.warn("TokenStream.next:- return null\n\n");
         return null;
     }
 };
@@ -1161,12 +1250,14 @@ pub const Parser = struct {
     }
 
     pub fn parse(p: *Parser, input: []const u8) !ValueTree {
+        if (DP) debug.warn("\nParser.parse\n");
         var s = TokenStream.init(input);
 
         var arena = ArenaAllocator.init(p.allocator);
         errdefer arena.deinit();
 
         while (try s.next()) |token| {
+            if (DP) debug.warn("Parser.parse: token.slice=\"{}\"\n", token.slice(input, s.i - 1));
             try p.transition(&arena.allocator, input, s.i - 1, token);
         }
 
@@ -1181,10 +1272,13 @@ pub const Parser = struct {
     // Even though p.allocator exists, we take an explicit allocator so that allocation state
     // can be cleaned up on error correctly during a `parse` on call.
     fn transition(p: *Parser, allocator: *Allocator, input: []const u8, i: usize, token: Token) !void {
+        if (DP) { debug.warn("Parser T s={} i={} token={}", p.state, i, token); p.dumpTos(" "); }
+        defer { if (DP) debug.warn(" ns={}\n", p.state); }
         switch (p.state) {
             State.ObjectKey => switch (token.id) {
                 Token.Id.ObjectEnd => {
                     if (p.stack.len == 1) {
+                        if (DP) debug.warn(" return OBJECT END *******");
                         return;
                     }
 
@@ -1194,6 +1288,7 @@ pub const Parser = struct {
                 Token.Id.String => {
                     try p.stack.append(try p.parseString(allocator, token, input, i));
                     p.state = State.ObjectValue;
+                    if (DP) debug.warn(" stack.append string");
                 },
                 else => {
                     unreachable;
@@ -1207,35 +1302,42 @@ pub const Parser = struct {
                     Token.Id.ObjectBegin => {
                         try p.stack.append(Value{ .Object = ObjectMap.init(allocator) });
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" stack append Value.Object");
                     },
                     Token.Id.ArrayBegin => {
                         try p.stack.append(Value{ .Array = ArrayList(Value).init(allocator) });
                         p.state = State.ArrayValue;
+                        if (DP) debug.warn(" stack append Value.ArrayList");
                     },
                     Token.Id.String => {
                         _ = try object.put(key, try p.parseString(allocator, token, input, i));
                         _ = p.stack.pop();
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" object.put key, string");
                     },
                     Token.Id.Number => {
                         _ = try object.put(key, try p.parseNumber(token, input, i));
                         _ = p.stack.pop();
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" object.put key, number");
                     },
                     Token.Id.True => {
                         _ = try object.put(key, Value{ .Bool = true });
                         _ = p.stack.pop();
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" object.put key, true");
                     },
                     Token.Id.False => {
                         _ = try object.put(key, Value{ .Bool = false });
                         _ = p.stack.pop();
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" object.put key, false");
                     },
                     Token.Id.Null => {
                         _ = try object.put(key, Value.Null);
                         _ = p.stack.pop();
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" object.put key, null");
                     },
                     Token.Id.ObjectEnd, Token.Id.ArrayEnd => {
                         unreachable;
@@ -1243,42 +1345,54 @@ pub const Parser = struct {
                 }
             },
             State.ArrayValue => {
+                var tos = p.stack.items[p.stack.len - 1];
+                if (DP) { debug.warn(" AE p.stack.len={} ", p.stack.len); tos.dump(); }
                 var array = &p.stack.items[p.stack.len - 1].Array;
 
                 switch (token.id) {
                     Token.Id.ArrayEnd => {
+                        if (DP) debug.warn(" p.stack.len={}", p.stack.len);
                         if (p.stack.len == 1) {
                             return;
                         }
 
                         var value = p.stack.pop();
                         try p.pushToParent(value);
+                        if (DP) { debug.warn(" pushToParent value: "); value.dump(); }
                     },
                     Token.Id.ObjectBegin => {
                         try p.stack.append(Value{ .Object = ObjectMap.init(allocator) });
                         p.state = State.ObjectKey;
+                        if (DP) debug.warn(" stack append Value.Object");
                     },
                     Token.Id.ArrayBegin => {
                         try p.stack.append(Value{ .Array = ArrayList(Value).init(allocator) });
                         p.state = State.ArrayValue;
+                        if (DP) debug.warn(" stack append Value.Array");
                     },
                     Token.Id.String => {
                         try array.append(try p.parseString(allocator, token, input, i));
+                        if (DP) debug.warn(" array append start");
                     },
                     Token.Id.Number => {
                         try array.append(try p.parseNumber(token, input, i));
+                        if (DP) debug.warn(" array append number");
                     },
                     Token.Id.True => {
                         try array.append(Value{ .Bool = true });
+                        if (DP) debug.warn(" array append true");
                     },
                     Token.Id.False => {
                         try array.append(Value{ .Bool = false });
+                        if (DP) debug.warn(" array append false");
                     },
                     Token.Id.Null => {
                         try array.append(Value.Null);
+                        if (DP) debug.warn(" array append Null");
                     },
                     Token.Id.ObjectEnd => {
-                        unreachable;
+                        if (DP) debug.warn(" ObjectEnd $$$$$$$$$$$");
+                        //unreachable;
                     },
                 }
             },
@@ -1286,25 +1400,32 @@ pub const Parser = struct {
                 Token.Id.ObjectBegin => {
                     try p.stack.append(Value{ .Object = ObjectMap.init(allocator) });
                     p.state = State.ObjectKey;
+                    if (DP) debug.warn(" stack append Value.Object");
                 },
                 Token.Id.ArrayBegin => {
                     try p.stack.append(Value{ .Array = ArrayList(Value).init(allocator) });
                     p.state = State.ArrayValue;
+                    if (DP) debug.warn(" stack append Value.Array");
                 },
                 Token.Id.String => {
                     try p.stack.append(try p.parseString(allocator, token, input, i));
+                    if (DP) debug.warn(" stack append string");
                 },
                 Token.Id.Number => {
                     try p.stack.append(try p.parseNumber(token, input, i));
+                    if (DP) debug.warn(" stack append number");
                 },
                 Token.Id.True => {
                     try p.stack.append(Value{ .Bool = true });
+                    if (DP) debug.warn(" stack append true");
                 },
                 Token.Id.False => {
                     try p.stack.append(Value{ .Bool = false });
+                    if (DP) debug.warn(" stack append false");
                 },
                 Token.Id.Null => {
                     try p.stack.append(Value.Null);
+                    if (DP) debug.warn(" stack append null");
                 },
                 Token.Id.ObjectEnd, Token.Id.ArrayEnd => {
                     unreachable;
@@ -1312,6 +1433,49 @@ pub const Parser = struct {
             },
         }
     }
+
+    fn dumpTos(p: *Parser, s: []const u8) void {
+        if (p.stack.len > 1) {
+            var tos = p.stack.items[p.stack.len - 1];
+            if (DP) {
+                debug.warn("{}stack.len={} tos=", s, p.stack.len);
+                tos.dump();
+            }
+        }
+    }
+
+    //fn pushToParent(p: *Parser, value: Value) !void {
+    //    if (DP) p.dumpTos(" pp: ");
+    //    var tos = p.stack.at(p.stack.len - 1);
+    //    switch (tos) {
+    //        // Object Parent -> [ ..., object, <key>, value ]
+    //        Value.String => |key| {
+    //            if (DP) { debug.warn(" Value.String key={} value=", key); value.dump(); }
+    //            _ = p.stack.pop();
+
+    //            var object = &p.stack.items[p.stack.len - 1].Object;
+    //            _ = try object.put(key, value);
+    //            p.state = State.ObjectKey;
+    //        },
+    //        // Array Parent -> [ ..., <array>, value ]
+    //        Value.Array => {
+    //            var array = p.stack.pop();
+    //            if (DP) {
+    //                debug.warn(" Value.Array array.len={}", array.Array.len);
+    //                p.dumpTos(" tos=");
+    //                debug.warn(" value=");
+    //                value.dump();
+    //            }
+    //            try array.Array.append(value);
+    //            try p.stack.append(array);
+    //            p.state = State.ArrayValue;
+    //            if (DP) { debug.warn(" array.len={}", array.Array.len); array.dump(); p.dumpTos(" tos="); }
+    //        },
+    //        else => {
+    //            unreachable;
+    //        },
+    //    }
+    //}
 
     fn pushToParent(p: *Parser, value: Value) !void {
         switch (p.stack.at(p.stack.len - 1)) {
@@ -1324,7 +1488,8 @@ pub const Parser = struct {
                 p.state = State.ObjectKey;
             },
             // Array Parent -> [ ..., <array>, value ]
-            Value.Array => |*array| {
+            Value.Array => {
+                var array = &p.stack.items[p.stack.len - 1].Array;
                 try array.append(value);
                 p.state = State.ArrayValue;
             },
@@ -1390,6 +1555,32 @@ test "json parser dynamic" {
     const animated = image.Object.get("Animated").?.value;
     debug.assert(animated.Bool == false);
 
+    const ids = image.Object.get("IDs").?.value.Array;
+    debug.warn("ids.len={}\n", ids.len);
+    var i: usize = 0;
+    while (i < ids.len) : (i += 1) {
+        var v = ids.items[i];
+        debug.warn("ids.item[{}]={}\n", i, v.Integer);
+    }
+
     const float_number = image.Object.get("FloatNumber").?.value;
     debug.assert(float_number.Float == 33.0);
+}
+
+test "array.objects" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"z": [1, {"n": "N"}]}
+    ;
+    //const s =
+    //    \\{"x": [1]}
+    //;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+    root.dump();
 }
