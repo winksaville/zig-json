@@ -385,14 +385,17 @@ pub const StreamingParser = struct {
                     token.* = Token.initMarker(Token.Id.ArrayBegin);
                 },
                 '-' => {
+                    p.number_is_integer = true;
                     p.state = State.Number;
                     p.count = 0;
                 },
                 '0' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDotOrExponent;
                     p.count = 0;
                 },
                 '1'...'9' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
                 },
@@ -451,14 +454,17 @@ pub const StreamingParser = struct {
                     token.* = Token.initMarker(Token.Id.ArrayBegin);
                 },
                 '-' => {
+                    p.number_is_integer = true;
                     p.state = State.Number;
                     p.count = 0;
                 },
                 '0' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDotOrExponent;
                     p.count = 0;
                 },
                 '1'...'9' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
                 },
@@ -1400,4 +1406,46 @@ test "json parser dynamic" {
 
     const obj0 = array_of_object.Array.at(0).Object.get("n").?.value;
     debug.assert(mem.eql(u8, obj0.String, "m"));
+}
+
+test "json.array.mixed" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"z": [1.0, {"n": [2]}]}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    const z = root.Object.get("z").?.value.Array;
+    debug.assert(z.len == 2);
+    const n_array = z.at(1).Object.get("n").?.value.Array;
+    debug.assert(n_array.len == 1);
+    debug.assert(n_array.items[0].Integer == 2);
+}
+
+test "json.numbers" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"num_array": [-1.2e-3, 4, 5.6, 7, -8e-9]}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    const num_array = root.Object.get("num_array").?.value.Array;
+
+    debug.assert(num_array.at(0).Float == -1.2e-3);
+    debug.assert(num_array.at(1).Integer == 4);
+    debug.assert(num_array.at(2).Float == 5.6);
+    debug.assert(num_array.at(3).Integer == 7);
+    debug.assert(num_array.at(4).Float == -8e-9);
 }
