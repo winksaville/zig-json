@@ -1016,6 +1016,14 @@ pub const Value = union(enum) {
     Array: ArrayList(Value),
     Object: ObjectMap,
 
+    fn asFloat(v: Value, comptime T: type) !T {
+        return switch (v) {
+            Value.Integer => @intToFloat(T, v.Integer),
+            Value.Float => @floatCast(T, v.Float),
+            else => error.ExpectedIntegerOrFloat,
+        };
+    }
+
     pub fn dump(self: Value) void {
         switch (self) {
             Value.Null => {
@@ -1132,6 +1140,19 @@ pub const Value = union(enum) {
         }
     }
 };
+
+test "json.Value.numbers" {
+    var v = Value{ .Float = 1.0 };
+    debug.assert(v.Float == 1.0);
+
+    v = Value{ .Integer = 2 };
+    debug.assert(v.Integer == 2);
+    debug.assert((try v.asFloat(f64)) == 2);
+
+    v = Value{ .String = "a" };
+    debug.assert(v.String[0] == 'a');
+    debug.assertError(v.asFloat(f64), error.ExpectedIntegerOrFloat);
+}
 
 // A non-stream JSON parser which constructs a tree of Value's.
 pub const Parser = struct {
@@ -1423,9 +1444,12 @@ test "json.array.mixed" {
 
     const z = root.Object.get("z").?.value.Array;
     debug.assert(z.len == 2);
+    debug.assert((try z.at(0).asFloat(f32)) == 1.0);
+
     const n_array = z.at(1).Object.get("n").?.value.Array;
     debug.assert(n_array.len == 1);
     debug.assert(n_array.items[0].Integer == 2);
+    debug.assert((try n_array.items[0].asFloat(f32)) == 2);
 }
 
 test "json.array.of.numbers" {
@@ -1433,7 +1457,7 @@ test "json.array.of.numbers" {
     defer p.deinit();
 
     const s =
-        \\{"num_array": [-1.2e-3, 4, 5.6, 7, -8e-9]}
+        \\{"num_array": [1.2e-3, 4, 5.6, 7, -8e9]}
     ;
 
     var tree = try p.parse(s);
@@ -1443,11 +1467,20 @@ test "json.array.of.numbers" {
 
     const num_array = root.Object.get("num_array").?.value.Array;
 
-    debug.assert(num_array.at(0).Float == -1.2e-3);
+    debug.assert(num_array.at(0).Float == 1.2e-3);
+    debug.assert((try num_array.at(0).asFloat(f32)) == 1.2e-3);
+
     debug.assert(num_array.at(1).Integer == 4);
+    debug.assert((try num_array.at(1).asFloat(f32)) == 4);
+
     debug.assert(num_array.at(2).Float == 5.6);
+    debug.assert((try num_array.at(2).asFloat(f32)) == 5.6);
+
     debug.assert(num_array.at(3).Integer == 7);
-    debug.assert(num_array.at(4).Float == -8e-9);
+    debug.assert((try num_array.at(3).asFloat(f64)) == 7);
+
+    debug.assert(num_array.at(4).Float == -8e9);
+    debug.assert((try num_array.at(4).asFloat(f64)) == -8e9);
 }
 
 test "json.simple.numbers" {
