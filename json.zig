@@ -1428,7 +1428,7 @@ test "json.array.mixed" {
     debug.assert(n_array.items[0].Integer == 2);
 }
 
-test "json.numbers" {
+test "json.array.of.numbers" {
     var p = Parser.init(debug.global_allocator, false);
     defer p.deinit();
 
@@ -1448,4 +1448,21 @@ test "json.numbers" {
     debug.assert(num_array.at(2).Float == 5.6);
     debug.assert(num_array.at(3).Integer == 7);
     debug.assert(num_array.at(4).Float == -8e-9);
+}
+
+test "json.simple.numbers" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"a": -1.0, "b": 2}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    debug.assert(root.Object.get("a").?.value.Float == -1.0);
+    debug.assert(root.Object.get("b").?.value.Integer == 2);
 }
