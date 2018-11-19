@@ -8,8 +8,11 @@ const mem = std.mem;
 const maxInt = std.math.maxInt;
 const ParseNumber = @import("modules/zig-parse-number/parse_number.zig").ParseNumber;
 
+const DBG = false;
+
 const DP = false;
-const DT = false;
+const DTS = false;
+const DTK = false;
 const DS = false;
 
 // A single token slice into the parent string.
@@ -224,7 +227,7 @@ pub const StreamingParser = struct {
 
     // Perform a single transition on the state machine and return any possible token.
     fn transition(p: *StreamingParser, c: u8, token: *?Token) Error!bool {
-        if (DS) debug.warn("StreamParser T s={} c={x}'{c}'", p.state, c, c);
+        if (DS) debug.warn("StreamParser T s={} nisi={} c={x}'{c}'", p.state, p.number_is_integer, c, c);
         defer {
             if (DS) {
                 debug.warn(" token={} ns={}\n", token.*, p.state);
@@ -399,14 +402,17 @@ pub const StreamingParser = struct {
                     token.* = Token.initMarker(Token.Id.ArrayBegin);
                 },
                 '-' => {
+                    p.number_is_integer = true;
                     p.state = State.Number;
                     p.count = 0;
                 },
                 '0' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDotOrExponent;
                     p.count = 0;
                 },
                 '1'...'9' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
                 },
@@ -467,14 +473,17 @@ pub const StreamingParser = struct {
                     token.* = Token.initMarker(Token.Id.ArrayBegin);
                 },
                 '-' => {
+                    p.number_is_integer = true;
                     p.state = State.Number;
                     p.count = 0;
                 },
                 '0' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDotOrExponent;
                     p.count = 0;
                 },
                 '1'...'9' => {
+                    p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
                 },
@@ -960,10 +969,10 @@ pub const TokenStream = struct {
     }
 
     pub fn next(self: *TokenStream) !?Token {
-        if (DT) debug.warn("TokenStream.next:+\n");
+        if (DTS) debug.warn("TokenStream.next:+\n");
         if (self.token) |token| {
             self.token = null;
-            if (DT) debug.warn("TokenStream.next:- return second token={}\n\n", token);
+            if (DTS) debug.warn("TokenStream.next:- return second token={}\n\n", token);
             return token;
         }
 
@@ -976,7 +985,7 @@ pub const TokenStream = struct {
 
             if (t1) |token| {
                 self.token = t2;
-                if (DT) debug.warn("TokenStream.next:- return first token={} t2={}\n\n", token, t2);
+                if (DTS) debug.warn("TokenStream.next:- return first token={} t2={}\n\n", token, t2);
                 return token;
             }
         }
@@ -986,12 +995,12 @@ pub const TokenStream = struct {
             self.i += 1;
 
             if (t1) |token| {
-                if (DT) debug.warn("TokenStream.next:- return last token={}\n\n", token);
+                if (DTS) debug.warn("TokenStream.next:- return last token={}\n\n", token);
                 return token;
             }
         }
 
-        if (DT) debug.warn("TokenStream.next:- return null\n\n");
+        if (DTS) debug.warn("TokenStream.next:- return null\n\n");
         return null;
     }
 };
@@ -1001,7 +1010,7 @@ fn checkNext(p: *TokenStream, id: Token.Id) void {
     debug.assert(token.id == id);
 }
 
-test "token" {
+test "json.token" {
     const s =
         \\{
         \\  "Image": {
@@ -1071,7 +1080,7 @@ pub fn validate(s: []const u8) bool {
     return p.complete;
 }
 
-test "json validate" {
+test "json.validate" {
     debug.assert(validate("{}"));
 }
 
@@ -1514,7 +1523,7 @@ pub const Parser = struct {
     }
 };
 
-test "json parser dynamic" {
+test "json.parser.dynamic" {
     var p = Parser.init(debug.global_allocator, false);
     defer p.deinit();
 
@@ -1541,6 +1550,11 @@ test "json parser dynamic" {
     defer tree.deinit();
 
     var root = tree.root;
+    if (DBG) {
+        debug.warn("\n");
+        root.dump();
+        debug.warn("\n");
+    }
 
     var image = root.Object.get("Image").?.value;
 
@@ -1557,11 +1571,13 @@ test "json parser dynamic" {
     debug.assert(animated.Bool == false);
 
     const ids = image.Object.get("IDs").?.value.Array;
-    debug.warn("ids.len={}\n", ids.len);
-    var i: usize = 0;
-    while (i < ids.len) : (i += 1) {
-        var v = ids.items[i];
-        debug.warn("ids.item[{}]={}\n", i, v.Integer);
+    if (DBG) {
+        debug.warn("ids.len={}\n", ids.len);
+        var i: usize = 0;
+        while (i < ids.len) : (i += 1) {
+            var v = ids.items[i];
+            debug.warn("ids.item[{}]={}\n", i, v.Integer);
+        }
     }
 
     const float_number = image.Object.get("FloatNumber").?.value;
@@ -1574,20 +1590,68 @@ test "json parser dynamic" {
     debug.assert(mem.eql(u8, obj0.String, "m"));
 }
 
-test "array.objects" {
+test "json.array.mixed" {
     var p = Parser.init(debug.global_allocator, false);
     defer p.deinit();
 
     const s =
-        \\{"z": [1, {"n": "N"}]}
+        \\{"z": [1.0, {"n": [2]}]}
     ;
-    //const s =
-    //    \\{"x": [1]}
-    //;
 
     var tree = try p.parse(s);
     defer tree.deinit();
 
     var root = tree.root;
-    root.dump();
+    if (DBG) {
+        debug.warn("\n");
+        root.dump();
+        debug.warn("\n");
+    }
+
+    const z = root.Object.get("z").?.value.Array;
+    debug.assert(z.len == 2);
+    const n_array = z.at(1).Object.get("n").?.value.Array;
+    debug.assert(n_array.len == 1);
+    debug.assert(n_array.items[0].Integer == 2);
+}
+
+test "json.numbers" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"num_array": [-1.2e-3, 4, 5.6, 7, -8e-9]}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+    if (DBG) {
+        debug.warn("\n");
+        root.dump();
+        debug.warn("\n");
+    }
+
+    const num_array = root.Object.get("num_array").?.value.Array;
+    if (DBG) {
+        debug.warn("num_array.len={}\n", num_array.len);
+        var i: usize = 0;
+        while (i < num_array.len) : (i += 1) {
+            var item = num_array.items[i];
+            debug.warn("num_array.item[{}]=", i);
+            switch (item) {
+                Value.Integer => debug.warn("{}", item.Integer),
+                Value.Float => debug.warn("{}", item.Float),
+                else => debug.warn("?"),
+            }
+            debug.warn("\n");
+        }
+    }
+
+    debug.assert(num_array.at(0).Float == -1.2e-3);
+    debug.assert(num_array.at(1).Integer == 4);
+    debug.assert(num_array.at(2).Float == 5.6);
+    debug.assert(num_array.at(3).Integer == 7);
+    debug.assert(num_array.at(4).Float == -8e-9);
 }
