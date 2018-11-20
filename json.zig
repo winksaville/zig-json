@@ -153,7 +153,7 @@ pub const StreamingParser = struct {
         StringEscapeHexUnicode1,
 
         Number,
-        NumberMaybeDotOrExponent,
+        //NumberMaybeDotOrExponent,
         NumberMaybeDigitOrDotOrExponent,
         NumberFractionalRequired,
         NumberFractional,
@@ -248,13 +248,14 @@ pub const StreamingParser = struct {
                     p.after_value_state = State.TopLevelEnd;
                     p.count = 0;
                 },
-                '0' => {
-                    p.number_is_integer = true;
-                    p.state = State.NumberMaybeDotOrExponent;
-                    p.after_value_state = State.TopLevelEnd;
-                    p.count = 0;
-                },
-                '1'...'9' => {
+                //'0' => {
+                //    p.number_is_integer = true;
+                //    p.state = State.NumberMaybeDigitOrDotOrExponent;
+                //    p.after_value_state = State.TopLevelEnd;
+                //    p.count = 0;
+                //},
+                //'1'...'9' => {
+                '0'...'9' => {
                     p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.after_value_state = State.TopLevelEnd;
@@ -389,12 +390,13 @@ pub const StreamingParser = struct {
                     p.state = State.Number;
                     p.count = 0;
                 },
-                '0' => {
-                    p.number_is_integer = true;
-                    p.state = State.NumberMaybeDotOrExponent;
-                    p.count = 0;
-                },
-                '1'...'9' => {
+                //'0' => {
+                //    p.number_is_integer = true;
+                //    p.state = State.NumberMaybeDigitOrDotOrExponent;
+                //    p.count = 0;
+                //},
+                //'1'...'9' => {
+                '0'...'9' => {
                     p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
@@ -458,12 +460,13 @@ pub const StreamingParser = struct {
                     p.state = State.Number;
                     p.count = 0;
                 },
-                '0' => {
-                    p.number_is_integer = true;
-                    p.state = State.NumberMaybeDotOrExponent;
-                    p.count = 0;
-                },
-                '1'...'9' => {
+                //'0' => {
+                //    p.number_is_integer = true;
+                //    p.state = State.NumberMaybeDigitOrDotOrExponent;
+                //    p.count = 0;
+                //},
+                //'1'...'9' => {
+                '0'...'9' => {
                     p.number_is_integer = true;
                     p.state = State.NumberMaybeDigitOrDotOrExponent;
                     p.count = 0;
@@ -655,10 +658,11 @@ pub const StreamingParser = struct {
             State.Number => {
                 p.complete = p.after_value_state == State.TopLevelEnd;
                 switch (c) {
-                    '0' => {
-                        p.state = State.NumberMaybeDotOrExponent;
-                    },
-                    '1'...'9' => {
+                    //'0' => {
+                    //    p.state = State.NumberMaybeDigitOrDotOrExponent;
+                    //},
+                    //'1'...'9' => {
+                    '0'...'9' => {
                         p.state = State.NumberMaybeDigitOrDotOrExponent;
                     },
                     else => {
@@ -667,24 +671,24 @@ pub const StreamingParser = struct {
                 }
             },
 
-            State.NumberMaybeDotOrExponent => {
-                p.complete = p.after_value_state == State.TopLevelEnd;
-                switch (c) {
-                    '.' => {
-                        p.number_is_integer = false;
-                        p.state = State.NumberFractionalRequired;
-                    },
-                    'e', 'E' => {
-                        p.number_is_integer = false;
-                        p.state = State.NumberExponent;
-                    },
-                    else => {
-                        p.state = p.after_value_state;
-                        token.* = Token.initNumber(p.count, p.number_is_integer);
-                        return true;
-                    },
-                }
-            },
+            //State.NumberMaybeDotOrExponent => {
+            //    p.complete = p.after_value_state == State.TopLevelEnd;
+            //    switch (c) {
+            //        '.' => {
+            //            p.number_is_integer = false;
+            //            p.state = State.NumberFractionalRequired;
+            //        },
+            //        'e', 'E' => {
+            //            p.number_is_integer = false;
+            //            p.state = State.NumberExponent;
+            //        },
+            //        else => {
+            //            p.state = p.after_value_state;
+            //            token.* = Token.initNumber(p.count, p.number_is_integer);
+            //            return true;
+            //        },
+            //    }
+            //},
 
             State.NumberMaybeDigitOrDotOrExponent => {
                 p.complete = p.after_value_state == State.TopLevelEnd;
@@ -1141,9 +1145,10 @@ pub const Value = union(enum) {
     }
 };
 
-test "json.Value.numbers" {
-    var v = Value{ .Float = 1.0 };
-    debug.assert(v.Float == 1.0);
+test "json.Value.asFloat" {
+    var v = Value{ .Float = -0.1 };
+    debug.assert(v.Float == -0.1);
+    debug.assert((try v.asFloat(f64)) == -0.1);
 
     v = Value{ .Integer = 2 };
     debug.assert(v.Integer == 2);
@@ -1457,7 +1462,7 @@ test "json.array.of.numbers" {
     defer p.deinit();
 
     const s =
-        \\{"num_array": [1.2e-3, 4, 5.6, 7, -8e9]}
+        \\{"num_array": [1.2e-3, 4, 5.6, 7, -8e9, -0.7580, -1.001e-01] }
     ;
 
     var tree = try p.parse(s);
@@ -1481,6 +1486,12 @@ test "json.array.of.numbers" {
 
     debug.assert(num_array.at(4).Float == -8e9);
     debug.assert((try num_array.at(4).asFloat(f64)) == -8e9);
+
+    debug.assert(num_array.at(5).Float == -0.7580);
+    debug.assert((try num_array.at(5).asFloat(f64)) == -0.7580);
+
+    debug.assert(num_array.at(6).Float == -1.001e-1);
+    debug.assert((try num_array.at(6).asFloat(f64)) == -1.001e-1);
 }
 
 test "json.simple.numbers" {
@@ -1498,4 +1509,52 @@ test "json.simple.numbers" {
 
     debug.assert(root.Object.get("a").?.value.Float == -1.0);
     debug.assert(root.Object.get("b").?.value.Integer == 2);
+}
+
+test "json.single.leading.zero.before.decimal" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"a": 0.1}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    debug.assert(root.Object.get("a").?.value.Float == 0.1);
+}
+
+test "json.leading.zero.integer" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"a": 001}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    debug.assert(root.Object.get("a").?.value.Integer == 1);
+}
+
+test "json.leading.zero.float.before.ones.digit" {
+    var p = Parser.init(debug.global_allocator, false);
+    defer p.deinit();
+
+    const s =
+        \\{"a": 01.001}
+    ;
+
+    var tree = try p.parse(s);
+    defer tree.deinit();
+
+    var root = tree.root;
+
+    debug.assert(root.Object.get("a").?.value.Float == 01.001);
 }
