@@ -35,12 +35,10 @@ fn getFileSize(file_name: []const u8) !usize {
     return try file.getEndPos();
 }
 
-const meshns = @import("modules/zig-geometry/mesh.zig");
-const Mesh = meshns.Mesh;
-const Vertex = meshns.Vertex;
-const Face = meshns.Face;
-
 const geo = @import("modules/zig-geometry/index.zig");
+const Mesh = geo.Mesh;
+const Vertex = geo.Vertex;
+const Face = geo.Face;
 
 test "parse_json_file.readFile" {
     var file_name = "modules/3d-test-resources/suzanne.babylon";
@@ -67,59 +65,4 @@ test "parse_json_file.dump.suzanne" {
 
     var meshes = root.Object.get("meshes");
     assert(meshes != null);
-}
-
-test "parse_json_file.parse.suzanne" {
-    var file_name = "modules/3d-test-resources/suzanne.babylon";
-    var pAllocator = std.heap.c_allocator;
-    var tree = try parseJsonFile(pAllocator, file_name);
-    defer tree.deinit();
-
-    var root = tree.root;
-
-    var meshes = root.Object.get("meshes").?.value.Array;
-
-    if (DBG) warn("mesh_array.len={}\n", meshes.len);
-    assert(meshes.len == 1);
-
-    var positions = meshes.items[0].Object.get("positions").?.value.Array;
-    if (DBG) warn("positions.len={}\n", positions.len);
-
-    var normals = meshes.items[0].Object.get("normals").?.value.Array;
-    if (DBG) warn("normals.len={}\n", normals.len);
-
-    var indices = meshes.items[0].Object.get("indices").?.value.Array;
-    if (DBG) warn("indices.len={}\n", indices.len);
-
-    var vertices_count = positions.len / 3;
-    var faces_count = indices.len / 3;
-    if (DBG) warn("vertices_count={} faces_count={}\n", vertices_count, faces_count);
-
-    var mesh = try Mesh.init(pAllocator, "suzanne", vertices_count, faces_count);
-    var i: usize = 0;
-    var pos_iter = positions.iterator();
-    var nrml_iter = normals.iterator();
-    while (i < vertices_count) : (i += 1) {
-        var x = try pos_iter.next().?.asFloat(f32);
-        var y = try pos_iter.next().?.asFloat(f32);
-        var z = try pos_iter.next().?.asFloat(f32);
-
-        var nx = try nrml_iter.next().?.asFloat(f32);
-        var ny = try nrml_iter.next().?.asFloat(f32);
-        var nz = try nrml_iter.next().?.asFloat(f32);
-        mesh.vertices[i] = Vertex {
-            .coord = geo.V3f32.init(x, y, z),
-            .world_coord = geo.V3f32.init(0, 0, 0),
-            .normal_coord = geo.V3f32.init(nx, ny, nz),
-        };
-    }
-    i = 0;
-    var indicies_iter = indices.iterator();
-    while (i < faces_count) : (i += 1) {
-        var a = @intCast(usize, indicies_iter.next().?.Integer);
-        var b = @intCast(usize, indicies_iter.next().?.Integer);
-        var c = @intCast(usize, indicies_iter.next().?.Integer);
-        if (DBG) warn("face[{}]={{ .a={} .b={} .c={} }}\n", i, a, b, c);
-        mesh.faces[i] = Face { .a=a, .b=b, .c=c };
-    }
 }
