@@ -61,6 +61,30 @@ Test 317/319 i_string_UTF8_surrogate_U+D800...OK
 Test 318/319 i_structure_500_nested_arrays...OK
 Test 319/319 i_structure_UTF-8_BOM_empty_object...OK
 All tests passed.
+$ zig test parse_json_file_test.zig --library c
+Test 1/22 parse_json_file.readFile...OK
+Test 2/22 parse_json_file.dump.suzanne...OK
+Test 3/22 json.json.token...OK
+Test 4/22 json.json.validate...OK
+Test 5/22 json.json.Value.asFloat...OK
+Test 6/22 json.json.parser.dynamic...OK
+Test 7/22 json.json.array.mixed...OK
+Test 8/22 json.json.array.of.numbers...OK
+Test 9/22 json.json.simple.numbers...OK
+Test 10/22 json.json.single.leading.zero.before.decimal...OK
+Test 11/22 json.json.leading.zero.integer...OK
+Test 12/22 json.json.leading.zero.float.before.ones.digit...OK
+Test 13/22 modules.zig-parse-number.parse_number.ParseNumber.parseFloat...OK
+Test 14/22 modules.zig-parse-number.parse_number.ParseNumber.parseIntegerNumber...OK
+Test 15/22 modules.zig-parse-number.parse_number.ParseNumber.parseFloatNumber...OK
+Test 16/22 modules.zig-parse-number.parse_number.ParseNumber...OK
+Test 17/22 modules.zig-parse-number.parse_number.ParseNumber.errors...OK
+Test 18/22 modules.zig-parse-number.parse_number.ParseNumber.non-u8-sizes...OK
+Test 19/22 modules.zig-parse-number.parse_number.ParseNumber.parseF32...OK
+Test 20/22 modules.zig-parse-number.parse_number.ParseNumber.leading.zeros...OK
+Test 21/22 modules.zig-parse-number.parse_number.ParseNumber.no.leading.digit...OK
+Test 22/22 modules.zig-parse-number.parse_number.ParseNumber.trailing.decimal...OK
+All tests passed.
 ```
 
 ## Clean
